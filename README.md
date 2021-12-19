@@ -3,7 +3,7 @@
 model - 'swin_unet' / 'trans_unet'
 
 ```bash
-python train.py --model 'trans_unet' --vit_name $VIT_NAME --root_path [DATA_DIR] --valid_path [VALID_DIR] --max_epochs [EPOCH_TIME] --output_dir [OUT_DIR] --img_Hsize [img_Hsize] --img_Wsize [img_Wsize]  --base_lr [LEARNING_RATE] --batch_size [BATCH_SIZE] --n_gpu [N_GPU] --angle [ANGLE]
+python train.py --model 'trans_unet' --vit_name [VIT_NAME] --root_path [DATA_DIR] --valid_path [VALID_DIR] --max_epochs [EPOCH_TIME] --output_dir [OUT_DIR] --img_Hsize [img_Hsize] --img_Wsize [img_Wsize]  --base_lr [LEARNING_RATE] --batch_size [BATCH_SIZE] --n_gpu [N_GPU] --angle [ANGLE]
 ```
 
 ## Test 
