@@ -78,8 +78,8 @@ def trainer_synapse(args, model, snapshot_path):
     num_classes = args.num_classes
     batch_size = args.batch_size * args.n_gpu
     # max_iterations = args.max_iterations
-    train_T = transforms.Compose([RandomGenerator(output_size=[args.img_size, args.img_size], angle=args.angle)])
-    test_T = transforms.Compose([RandomGenerator(output_size=[args.img_size, args.img_size], angle=None, train=False)])
+    train_T = transforms.Compose([RandomGenerator(output_size=args.img_size, angle=args.angle)])
+    test_T = transforms.Compose([RandomGenerator(output_size=args.img_size, rot90=None, angle=None, train=False)])
     
 #     scale = [Zoom(args.img_size, args.img_size)]
 #     train_T = A.Compose(train_transform + scale + [to_tensor])
@@ -96,7 +96,7 @@ def trainer_synapse(args, model, snapshot_path):
 
     trainloader = DataLoader(db_train, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True,
                              worker_init_fn=worker_init_fn)
-    validloader = DataLoader(db_valid, batch_size=batch_size*2, shuffle=False, num_workers=4, pin_memory=True,
+    validloader = DataLoader(db_valid, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True,
                              worker_init_fn=worker_init_fn)
     if args.n_gpu > 1:
         model = nn.DataParallel(model)

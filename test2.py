@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import argparse
 import logging
 import os
@@ -25,30 +26,6 @@ from scipy.ndimage.interpolation import zoom
 from scipy import ndimage
 import copy
 import cv2
-
-class Zoom(DualTransform):
-    def __init__(self, height, width, always_apply=False, p=1):
-        super(Zoom, self).__init__(always_apply, p)
-        self.height = height
-        self.width = width
-        self.always_apply = always_apply
-        self.p = p
-        
-    def apply(self, image, **params):
-        x, y, _ = image.shape
-        if x != self.height or y != self.width:
-            image = cv2.resize(image, (self.output_size[0], self.output_size[1]), interpolation=cv2.INTER_CUBIC)
-#             image = zoom(image, (self.height / x, self.width / y, 1), order=3)  # why not 3?
-        return image
-    
-    def apply_to_mask(self, mask, **params):
-        x, y = mask.shape
-        if x != self.height or y != self.width:
-            mask = zoom(mask, (self.height / x, self.width / y), order=0)
-        return mask
-
-    def get_transform_init_args_names(self):
-        return ("height", "width")
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--A2C_path', type=str,
@@ -142,14 +119,14 @@ def inference(args, model, dataset, data_name=None):
             mean_dice = np.mean(avg_metric, axis=0)[0]
             mean_JI = np.mean(avg_metric, axis=0)[1]
             logging.info('Testing performance : mean_dice : %f mean_JI : %f' % (mean_dice, mean_JI))
-    
+
 #     print(avg_metric)
     total_prob = np.concatenate(total_prob, 0)
     total_label = np.concatenate(total_label, 0)
     
     return total_prob, total_label
 
-def restore_eval(dataset, total_probs, data_name=None):
+def restore_eval(dataset, total_probs, order=0, data_name=None):
    
     testloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
     print("The length of train set is: {}".format(len(dataset)))
@@ -159,17 +136,16 @@ def restore_eval(dataset, total_probs, data_name=None):
     
     for i_batch, sampled_batch in enumerate(testloader):
         image, mask = sampled_batch['image'], sampled_batch['mask'].numpy()
-       f
+
 #         print(total_probs[i_batch].shape, mask.shape)
         o_prob = total_probs[i_batch]
         _, x, y = total_probs[i_batch].shape
 #         o_prob = total_probs[:, i_batch]
 #         _, _, x, y = o_prob.shape
 
-        o_prob = zoom(o_prob, (1, mask.shape[1] / x, mask.shape[2] / y), order=0)
+        o_prob = zoom(o_prob, (1, mask.shape[1] / x, mask.shape[2] / y), order=order)
 #         o_prob = np.sum(o_prob, 0)
         pred = np.argmax(o_prob, 0)
-        print(pred.shape, sampled_batch['file_name'])
         dice, ji, dice2, ji2 = calculate_metric(pred == 1, mask == 1)
         
         total_metric[0] += dice
@@ -235,8 +211,9 @@ if __name__ == "__main__":
         test_save_path = None
     
     base = RandomGenerator(output_size=args.img_size, train=False)
-    transform_list = [ ['o', 'Hflip', 'Vflip', 'angle_2'], ['o', 'Hflip', 'Vflip', 'angle_2'] ]
-#     transform_list = [ ['o', 'Hflip', 'angle_2'], ['o', 'Hflip', 'Vflip', 'angle_2'] ]
+    transform_list = [ ['o', 'Hflip', 'Vflip', 'angle_-1'], ['o', 'Hflip', 'Vflip', 'angle_2'] ] # test15
+#     transform_list = [ ['o', 'Hflip', 'angle_1'], ['o', 'Hflip'] ] # test19
+#     transform_list = [ ['o', 'Hflip', 'Vflip', 'angle_-2'], ['o', 'Hflip', 'Vflip'] ] # test29
     data_path_list = [args.A2C_path, args.A4C_path]
     model_ckpt_list = [args.ckpt_path_m1, args.ckpt_path_m1]
     
@@ -316,12 +293,12 @@ if __name__ == "__main__":
                 if t_idx == len(transform_list[i])-1:
                     final_score[0] += dice
                     final_score[1] += ji
-
+            
         tta_probs_list = np.array(tta_probs_list)
         model_ensemble[i] = (tta_probs / len(transform_list[i]))
         o_dataset = args.Dataset(base_dir=data_path)
         o_probs = tta_probs / len(transform_list[i])
-        o_score = restore_eval(o_dataset, o_probs, data_name=data_path.split('/')[-1])
+        o_score = restore_eval(o_dataset, o_probs, order=0, data_name=data_path.split('/')[-1])
         logging.info('Original mean_dice %f mean_JI %f' % (o_score[0]*100, o_score[1]*100))
         o_final_score[0] += o_score[0]
         o_final_score[1] += o_score[1]
@@ -329,7 +306,9 @@ if __name__ == "__main__":
     logging.info('Final mean_dice %f mean_JI %f' % (final_score[0] / 2, final_score[1] / 2))
     logging.info('Original Final mean_dice %f mean_JI %f' % (o_final_score[0] / 2*100, o_final_score[1] / 2*100))
     
-    args.img_size = (512, 512)
+    m1_img_size = args.img_size
+    args.img_size = (384, 384)
+#     args.img_size = (400, 400) # test29
     config_vit = CONFIGS_ViT_seg[args.vit_name]
     config_vit.n_classes = args.num_classes
     if args.vit_name.find('R50') != -1:
@@ -339,99 +318,102 @@ if __name__ == "__main__":
     base = RandomGenerator(output_size=args.img_size, train=False)
     
     print('\nModel2!!')
-    transform_list = [ ['o', 'Hflip', 'angle_1'], ['o', 'Hflip'] ]
+    transform_list = [ ['o', 'Hflip'], ['o', 'Hflip'] ] # test22
+    transform_list = [ ['o', 'Hflip', 'Vflip'], ['o', 'Hflip', 'Vflip', 'angle_2'] ] # test28
+#     transform_list = [ ['o', 'Hflip', 'Vflip', 'angle_-2'], ['o', 'Hflip', 'Vflip'] ] # test29
     model_ckpt_list = [args.ckpt_path_m2, args.ckpt_path_m2]
-    if model_ckpt_list[0] != '':
-        final_score = [0.0, 0.0]
-        o_final_score = [0.0, 0.0]
-        for i in range(len(data_path_list)):
-            data_path = data_path_list[i]
-            print('========DATA', data_path.split('/')[-1])
-            snapshot = model_ckpt_list[i]
-            msg = net.load_state_dict(torch.load(snapshot))
-            print("self trained net", msg)
-            test_num = snapshot.split('/')[-2]
-            snapshot_name = snapshot.split('/')[-1]
-            print(test_num, snapshot_name)
+    final_score = [0.0, 0.0]
+    o_final_score = [0.0, 0.0]
+    for i in range(len(data_path_list)):
+        data_path = data_path_list[i]
+        print('========DATA', data_path.split('/')[-1])
+        snapshot = model_ckpt_list[i]
+        msg = net.load_state_dict(torch.load(snapshot))
+        print("self trained net", msg)
+        test_num = snapshot.split('/')[-2]
+        snapshot_name = snapshot.split('/')[-1]
+        print(test_num, snapshot_name)
+        
+        tta_probs = 0.0 # 누적 probs
+        o_label = 0
+        
+        for t_idx, t in enumerate(transform_list[i]):
+            print('transforms', t)
+            tt = t.split('_')[0]
+            if tt == 'o':
+                test_T = transforms.Compose([base])
+#                 test_T = A.Compose(scale + test_transform)
+            elif tt == 'Hflip':
+                cb = copy.deepcopy(base)
+                cb.Hflip = True
+                test_T = transforms.Compose([cb])
+            elif tt == 'Vflip':
+                cb = copy.deepcopy(base)
+                cb.Vflip = True
+                test_T = transforms.Compose([cb])
+            elif tt == 'rot90':
+                k = int(t.split('_')[1])
+                cb = copy.deepcopy(base)
+                cb.rot90 = k
+                test_T = transforms.Compose([cb])
+            elif tt == 'angle':
+                angle = int(t.split('_')[1])
+                cb = copy.deepcopy(base)
+                cb.angle = angle
+                test_T = transforms.Compose([cb])
+            print(test_T)
+            dataset = args.Dataset(base_dir=data_path, transform=test_T)
+            probs, label = inference(args, net, dataset, data_name=data_path.split('/')[-1])
+            pred = np.argmax(probs, 1)
+            dice, ji, dice2, ji2 = calculate_metric(pred == 1, label == 1)
+#             print(dice, ji, dice2, ji2)
+            logging.info('T : %s mean_dice %f mean_JI %f' % (t, dice, ji))
+            # probs (100,2,512,512)
+            if tt == 'o':
+                o_label = label
+            elif tt == 'Hflip':
+                probs = np.flip(probs, axis=3)
+            elif tt == 'Vflip':
+                probs = np.flip(probs, axis=2)
+            elif tt == 'rot90':
+                k = int(t.split('_')[1])
+                probs = np.rot90(probs, -k, axes=(2, 3))
+            elif tt == 'angle':
+                angle = int(t.split('_')[1])
+                probs = ndimage.rotate(probs, -angle, axes=(3, 2), order=0, reshape=False)
 
-            tta_probs = 0.0 # 누적 probs
-            o_label = 0
-
-            for t_idx, t in enumerate(transform_list[i]):
-                print('transforms', t)
-                tt = t.split('_')[0]
-                if tt == 'o':
-                    test_T = transforms.Compose([base])
-    #                 test_T = A.Compose(scale + test_transform)
-                elif tt == 'Hflip':
-                    cb = copy.deepcopy(base)
-                    cb.Hflip = True
-                    test_T = transforms.Compose([cb])
-                elif tt == 'Vflip':
-                    cb = copy.deepcopy(base)
-                    cb.Vflip = True
-                    test_T = transforms.Compose([cb])
-                elif tt == 'rot90':
-                    k = int(t.split('_')[1])
-                    cb = copy.deepcopy(base)
-                    cb.rot90 = k
-                    test_T = transforms.Compose([cb])
-                elif tt == 'angle':
-                    angle = int(t.split('_')[1])
-                    cb = copy.deepcopy(base)
-                    cb.angle = angle
-                    test_T = transforms.Compose([cb])
-                print(test_T)
-                dataset = args.Dataset(base_dir=data_path, transform=test_T)
-                probs, label = inference(args, net, dataset, data_name=data_path.split('/')[-1])
-                pred = np.argmax(probs, 1)
-                dice, ji, dice2, ji2 = calculate_metric(pred == 1, label == 1)
-    #             print(dice, ji, dice2, ji2)
-                logging.info('T : %s mean_dice %f mean_JI %f' % (t, dice, ji))
-                # probs (100,2,512,512)
-                if tt == 'o':
-                    o_label = label
-                elif tt == 'Hflip':
-                    probs = np.flip(probs, axis=3)
-                elif tt == 'Vflip':
-                    probs = np.flip(probs, axis=2)
-                elif tt == 'rot90':
-                    k = int(t.split('_')[1])
-                    probs = np.rot90(probs, -k, axes=(2, 3))
-                elif tt == 'angle':
-                    angle = int(t.split('_')[1])
-                    probs = ndimage.rotate(probs, -angle, axes=(3, 2), order=0, reshape=False)
-
-    #             probs = zoom(probs, (1, 1,512 / args.img_size, 512 / args.img_size), order=0) # 384 to 512
-                tta_probs += probs
-
-                if t_idx > 0:
-                    tta_pred = np.argmax(tta_probs / (t_idx+1), 1)
-                    dice, ji, dice2, ji2 = calculate_metric(tta_pred == 1, o_label_list[i] == 1)
-                    logging.info('TTA : %s mean_dice %f mean_JI %f' % (transform_list[i][:t_idx+1], dice, ji))
-                    if t_idx == len(transform_list[i])-1:
-                        final_score[0] += dice
-                        final_score[1] += ji
-
-            o_dataset = args.Dataset(base_dir=data_path)
-            o_probs = tta_probs / len(transform_list[i])
-            o_score = restore_eval(o_dataset, o_probs, data_name=data_path.split('/')[-1])
-            logging.info('Original mean_dice %f mean_JI %f' % (o_score[0]*100, o_score[1]*100))
-            o_final_score[0] += o_score[0]
-            o_final_score[1] += o_score[1]
-
-            model_ensemble[i] += (tta_probs / len(transform_list[i]))
-            model_pred = np.argmax(model_ensemble[i] / 2, 1)
-            dice, ji, dice2, ji2 = calculate_metric(model_pred == 1, o_label_list[i] == 1)
-            ensemble_score[0] += dice
-            ensemble_score[1] += ji
-            logging.info('%s Model E : mean_dice %f mean_JI %f' % (data_path.split('/')[-1], dice, ji))
-
-            o_score = restore_eval(o_dataset, model_ensemble[i], data_name=data_path.split('/')[-1])
-            logging.info('Model E Original mean_dice %f mean_JI %f' % (o_score[0]*100, o_score[1]*100))
-            o_ensemble_score[0] += o_score[0]
-            o_ensemble_score[1] += o_score[1]
-
-        logging.info('Final mean_dice %f mean_JI %f' % (ensemble_score[0] / 2, ensemble_score[1] / 2))
-        logging.info('Original Final mean_dice %f mean_JI %f' % (o_ensemble_score[0] / 2*100, o_ensemble_score[1] / 2*100))
+            if m1_img_size[0] != args.img_size[0]:
+                probs = zoom(probs, (1, 1, m1_img_size[0] / args.img_size[0], m1_img_size[1] / args.img_size[1]), order=2) # 384 to 512
+            tta_probs += probs
+            
+            if t_idx > 0:
+                tta_pred = np.argmax(tta_probs / (t_idx+1), 1)
+                dice, ji, dice2, ji2 = calculate_metric(tta_pred == 1, o_label_list[i] == 1)
+                logging.info('TTA : %s mean_dice %f mean_JI %f' % (transform_list[i][:t_idx+1], dice, ji))
+                if t_idx == len(transform_list[i])-1:
+                    final_score[0] += dice
+                    final_score[1] += ji
+        
+        o_dataset = args.Dataset(base_dir=data_path)
+        o_probs = tta_probs / len(transform_list[i])
+        o_score = restore_eval(o_dataset, o_probs, order=2, data_name=data_path.split('/')[-1])
+        logging.info('Original mean_dice %f mean_JI %f' % (o_score[0]*100, o_score[1]*100))
+        o_final_score[0] += o_score[0]
+        o_final_score[1] += o_score[1]
+        
+        model_ensemble[i] += (tta_probs / len(transform_list[i]))
+        model_pred = np.argmax(model_ensemble[i] / 2, 1)
+        dice, ji, dice2, ji2 = calculate_metric(model_pred == 1, o_label_list[i] == 1)
+        ensemble_score[0] += dice
+        ensemble_score[1] += ji
+        logging.info('%s Model E : mean_dice %f mean_JI %f' % (data_path.split('/')[-1], dice, ji))
+        
+        o_score = restore_eval(o_dataset, model_ensemble[i], order=0, data_name=data_path.split('/')[-1])
+        logging.info('Original Model E mean_dice %f mean_JI %f' % (o_score[0]*100, o_score[1]*100))
+        o_ensemble_score[0] += o_score[0]
+        o_ensemble_score[1] += o_score[1]
+    
+    print('')
+    logging.info('Final mean_dice %f mean_JI %f' % (ensemble_score[0] / 2, ensemble_score[1] / 2))
+    logging.info('Original Final mean_dice %f mean_JI %f' % (o_ensemble_score[0] / 2*100, o_ensemble_score[1] / 2*100))
 

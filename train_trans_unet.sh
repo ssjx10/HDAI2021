@@ -10,7 +10,7 @@ if [ $out_dir ]
 then
     OUT_DIR=$out_dir
 else
-    OUT_DIR='./transunet_model_out/test24'
+    OUT_DIR='./transunet_model_out/test27'
 fi
 
 if [ $vit_name ]
@@ -34,20 +34,13 @@ else
     LEARNING_RATE=0.01
 fi
 
-if [ $img_size ]
-then
-    IMG_SIZE=$img_size
-else
-    IMG_SIZE=384
-fi
-
 if [ $batch_size ]
 then
     BATCH_SIZE=$batch_size
 else
-    BATCH_SIZE=24
+    BATCH_SIZE=12
 fi
 
 echo "start train model"
 
-python train.py --model 'trans_unet' --vit_name $VIT_NAME --root_path $DATA_DIR --max_epochs $EPOCH_TIME --output_dir $OUT_DIR --img_size $IMG_SIZE --base_lr $LEARNING_RATE --batch_size $BATCH_SIZE --n_gpu 2 --angle 15
+python train.py --model 'trans_unet' --vit_name $VIT_NAME --root_path $DATA_DIR --max_epochs $EPOCH_TIME --output_dir $OUT_DIR --img_Hsize 512 --img_Wsize 512 --base_lr $LEARNING_RATE --batch_size $BATCH_SIZE --n_gpu 2 --angle 5

@@ -42,7 +42,9 @@ parser.add_argument('--eval_period', type=int,  default=10,
                     help='evaluation period')
 parser.add_argument('--check_period', type=int,  default=20,
                     help='checkpoint period')
-parser.add_argument('--img_size', type=int,
+parser.add_argument('--img_Hsize', type=int,
+                    default=224, help='input patch size of network input')
+parser.add_argument('--img_Wsize', type=int,
                     default=224, help='input patch size of network input')
 parser.add_argument('--seed', type=int,
                     default=1234, help='random seed')
@@ -99,7 +101,8 @@ if __name__ == "__main__":
             'num_classes': 2,
         },
     }
-
+    args.img_size = (args.img_Hsize, args.img_Wsize)
+    print(args.img_size)
     if args.batch_size != 24 and args.batch_size % 6 == 0:
         args.base_lr *= args.batch_size / 24
     args.num_classes = dataset_config[dataset_name]['num_classes']
@@ -115,7 +118,7 @@ if __name__ == "__main__":
         config_vit = CONFIGS_ViT_seg[args.vit_name]
         config_vit.n_classes = args.num_classes
         if args.vit_name.find('R50') != -1:
-            config_vit.patches.grid = (int(args.img_size / args.vit_patches_size), int(args.img_size / args.vit_patches_size))
+            config_vit.patches.grid = (int(args.img_size[0] / args.vit_patches_size), int(args.img_size[1] / args.vit_patches_size))
             print(config_vit.patches.grid)
         net = trasUnet(config_vit, img_size=args.img_size, num_classes=args.num_classes).cuda()
         net.load_from(np.load(config_vit.pretrained_path))
