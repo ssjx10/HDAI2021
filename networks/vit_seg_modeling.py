@@ -125,7 +125,10 @@ class Embeddings(nn.Module):
         super(Embeddings, self).__init__()
         self.hybrid = None
         self.config = config
-        img_size = _pair(img_size)
+        if type(img_size) is not tuple:
+            img_size = _pair(img_size)
+        else:
+            img_size = img_size
 
         if config.patches.get("grid") is not None:   # ResNet
             grid_size = config.patches["grid"]
@@ -353,7 +356,7 @@ class DecoderCup(nn.Module):
 
     def forward(self, hidden_states, features=None):
         B, n_patch, hidden = hidden_states.size()  # reshape from (B, n_patch, hidden) to (B, h, w, hidden)
-        h, w = int(np.sqrt(n_patch)), int(np.sqrt(n_patch))
+        h, w = self.config.patches.grid[0], self.config.patches.grid[1]
         x = hidden_states.permute(0, 2, 1)
         x = x.contiguous().view(B, hidden, h, w)
         x = self.conv_more(x)
@@ -370,6 +373,7 @@ class VisionTransformer(nn.Module):
     def __init__(self, config, img_size=224, num_classes=21843, zero_head=False, vis=False):
         super(VisionTransformer, self).__init__()
         self.num_classes = num_classes
+        
         self.zero_head = zero_head
         self.classifier = config.classifier
         self.transformer = Transformer(config, img_size, vis)
@@ -413,12 +417,13 @@ class VisionTransformer(nn.Module):
                 if self.classifier == "seg":
                     _, posemb_grid = posemb[:, :1], posemb[0, 1:]
                 gs_old = int(np.sqrt(len(posemb_grid)))
-                gs_new = int(np.sqrt(ntok_new))
+#                 gs_new = int(np.sqrt(ntok_new))
+                gs_new = self.config.patches.grid
                 print('load_pretrained: grid-size from %s to %s' % (gs_old, gs_new))
                 posemb_grid = posemb_grid.reshape(gs_old, gs_old, -1)
-                zoom = (gs_new / gs_old, gs_new / gs_old, 1)
+                zoom = (gs_new[0] / gs_old, gs_new[1] / gs_old, 1)
                 posemb_grid = ndimage.zoom(posemb_grid, zoom, order=1)  # th2np
-                posemb_grid = posemb_grid.reshape(1, gs_new * gs_new, -1)
+                posemb_grid = posemb_grid.reshape(1, gs_new[0] * gs_new[1], -1)
                 posemb = posemb_grid
                 self.transformer.embeddings.position_embeddings.copy_(np2th(posemb))
 
