@@ -11,11 +11,10 @@ python train.py --model 'trans_unet' --vit_name $VIT_NAME --root_path $DATA_DIR 
 python test.py --A2C_path [A2C_path] --A4C_path [A4C_path] --model 'trans_unet' --ckpt_path_A2C './transunet_model_out/test15/epoch_249.pth' --ckpt_path_A4C './transunet_model_out/test15/epoch_249.pth' --img_size 512 --batch_size 2
 ```
 
-## Test 
+## Infer 
 
 ```bash
-python test.py --A2C_path [A2C_path] --A4C_path [A4C_path] --model 'trans_unet' --ckpt_path_A2C './transunet_model_out/test15/epoch_249.pth' --ckpt_path_A4C './transunet_model_out/test15/epoch_249.pth' --img_size 512 --batch_size 2
+python infer.py --model 'trans_unet' --ckpt_path_m1 './transunet_model_out/test15/epoch_249.pth' --ckpt_path_m2 './transunet_model_out/test28/epoch_249.pth' --img_Hsize 512 --img_Wsize 512 --batch_size 32
 ```
 
 A2C_path와 A4C_path 수정!!
-model weight는 transunet_model_out/test19 transunet_model_out/test15에 있습니다.
