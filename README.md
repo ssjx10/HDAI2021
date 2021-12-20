@@ -1,3 +1,16 @@
+# Heart Disease AI Datathon 2021
+
+Project 기간: 2021년 11월 26일 → 2021년 12월 7일
+
+[Korea-Health-Datathon/KHD2020](https://github.com/Korea-Health-Datathon/KHD2020)
+
+# Overview
+
+## Heart Disease AI Datathon 2021
+
+- “2021 인공지능 학습용 데이터 구축사업”의 일환으로 추진된 인공지능 학습용 심장질환 심초음파 및 심전도 데이터셋을 이용하여 심초음파/심전도 질환을 판별하는 AI 진단 모델링 경진대회
+- 주제 1 - 심초음파 데이터셋을 활용한 **좌심실 분할 AI모델**
+    - Apical 2 chamber(A2C) & Apical 4 chamber(A4C) view 이미지를 활용해 좌심실 분할하는 딥러닝 모델 개발
 
 ## Train
 model - 'swin_unet' / 'trans_unet'
